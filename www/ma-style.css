@@ -43,6 +43,15 @@ border-width: 3px;
 	border-bottom: 1px solid black;
 }
 
+#dbTable{
+	width:95%;
+	margin-left:2.5%;
+}
+
+#databases{
+	width: 100%;
+}
+
 .ui-navbar .ui-btn{
 	height: 3em;
 	line-height: 3em;
@@ -56,6 +65,7 @@ border-width: 3px;
 	width:100%;
 	margin-left: 20%;
 }
+
 
 #recordTable{
 	position: relative;
@@ -192,9 +202,11 @@ margin-bottom: 0px;
 #sourceTable{
 	width:100%;
 }
-
+5
 #sourcelist{
 	margin-top: 5px;
+	margin-left: 2%;
+	margin-right: 2;
 }
 #sourceTable, th {
 	border-collapse: collapse;

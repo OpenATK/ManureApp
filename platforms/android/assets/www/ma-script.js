@@ -2,44 +2,30 @@
 var infowWindow;
 var polypoint = [];
 var polygons = [];
-var cur_field = {};
+var currentfield = {};
 var map;
-var cur_source;
 var latlng;
 var cur_path = [];
-var retrievedRecords = [];
 var polyline = [];
- thisOne = [];
-var retrievedFields = [];
-var myGeolocation;
-var length_in_km;
-var length_in_ft;
 var STOP = 0;
 var START = 1;
-var  status =  STOP;
-var scanStatus = STOP;
 var polyLength;
 var spreadRate;
 var cur_spreader;
-
-
-
- // var samplePoly = new google.maps.Polygon({
-     // paths: [
-     	// new google.maps.LatLng(41.09885910447265 , -86.64110183715822),
-    		// new google.maps.LatLng(41.09892378442908 , -86.62221908569336),
-    		// new google.maps.LatLng( 41.08449857758279 , -86.62213325500488),
-    		// new google.maps.LatLng(41.08449857758279 , -86.6411018371582)],
- 	   	// fillColor: 'green',
- 		// strokeColor: 'yellow',
- 		// strokeOpacity: 0.7,
- 		// strokeWeight: 4,
- 		// fillOpacity: 0.35,
- 		// visible: true			
-// });
- // var fields = [{name :"Back 40", unit: "1000gal/ac", rate: "7", area: "9000" , polygon: samplePoly}];
-
-fields = [];
+var fieldName;
+var cur_point = {};
+var clickPostion;
+var positionPoint;
+var updateMarker;
+var positionMarker;
+var positionStatus = 0;
+var arrX = [];
+var arrY = [];
+var arrZ = [];
+var averageRslt;
+var fieldSelect = 0;
+var fieldTableStat = 0;
+var spTableStat = 0;
 
 function postPath(){
 cur_record.path = google.maps.geometry.encoding.encodePath(cur_path);
@@ -95,7 +81,36 @@ function overlay() {
 	el = document.getElementById("overlay");
 	el.style.visibility = (el.style.visibility == "visible") ? "hidden" : "visible";
 }
+
+function syncing() {
+	ss = document.getElementById("syncingSpinner");
+	ss.style.visibility = (ss.style.visibility == "visible") ? "hidden" : "visible";
+}
 	
+function recordPath() {
+    geoP = navigator.geolocation.watchPosition( 
+        function ( position) {
+        	
+		points = (new google.maps.LatLng(position.coords.latitude, position.coords.longitude));
+       	travelSpeed = position.coords.speed*2.2369;
+		positionE = position.coords.accuracy;
+		if(position.coords.accuracy < 15){
+			cur_path.push(points)
+		}
+		
+		document.getElementById('cur_speed').innerHTML = '<strong>'+travelSpeed.toFixed(2) +' (MPH)</strong>  '+ positionE.toFixed(2) + 'error meters'  ;
+		console.log(travelSpeed);
+        },
+        function () { /*error*/ }, {
+            maximumAge: 1000, //  1 seconds
+            enableHighAccuracy: true
+ 			 
+        }
+
+	);
+
+};
+
 function recordPath() {
     geoP = navigator.geolocation.watchPosition( 
         function ( position) {
@@ -123,18 +138,16 @@ function recordPath() {
 
 function killPathTimer(){
 	navigator.geolocation.clearWatch(geoP);
-	polyLength = google.maps.geometry.spherical.computeLength(cur_path);
+	polyLength = google.maps.geometry.spherical.computeLength(cur_path)*3.2804;
 	console.log(polyLength)
 	var spreadWidth = cur_spreader.width;
 	var spreadAmount = cur_spreader.capacity
 	var spreadArea = spreadWidth*polyLength;
 	spreadArAc = spreadArea/43560;
-	rate =  spreadAmount /spreadArAc;
+	rate = spreadAmount /spreadArAc;
 }
 
 
-
-	
 	//Map
 function createMap(){
     var defaultLatLng = new google.maps.LatLng(40.4240,-86.9290);  // Default to Purdue Universitywhen no geolocation support
@@ -161,13 +174,12 @@ function createMap(){
 	            mapTypeId: google.maps.MapTypeId.SATELLITE
 			};
 
-	        var map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
+	        map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
 			var latLngBounds = new google.maps.LatLngBounds();
 
 				for(var i=0; i < retrievedRecords.length; i++){
 					decoded = retrievedRecords[i].doc.obj.path;
 					newPolyline = google.maps.geometry.encoding.decodePath(decoded);
-					console.log(newPolyline);
 					for(var j = 0; j < newPolyline.length; j++) {
 						latLngBounds.extend(newPolyline[j]);
 						// Place the marker
@@ -185,8 +197,16 @@ function createMap(){
 						strokeOpacity: 1.0,
 						strokeWeight: 8
 					});
-				}		
-			
+				}
+				// google.maps.event.addListener(map, 'click', function( event ){
+  		// 			alert( "Latitude: "+event.latLng.lat()+" "+", longitude: "+event.latLng.lng() ); 
+				// });	
+				// google.maps.event.addListener(map, 'click', function(e) {
+    //     			positionPoint = e.latLng;
+    //     			updateMarker();
+
+    //     		});
+
 	        map.fitBounds(latLngBounds);  		
 			map.setTilt(0);
 			field_db.allDocs({include_docs: true, descending: true}, function(er, doc) {
@@ -225,7 +245,6 @@ function createMap(){
 		   					infoWindow.open(map);
 		   					currentMark = infoWindow;
 		   					samsPolygon.getEditable(map);
-				
 					});
 					google.maps.event.addListener(infoWindow,'closeclick',function(){
 	   					currentMark.setMap(null); //removes the marker
@@ -233,7 +252,26 @@ function createMap(){
 
 			    }	
 			});
-		});		
+		});
+		updateMarker = function(){
+			if(positionStatus == 1){
+				positionMarker.setMap(null);
+				positionMarker = new google.maps.Marker({
+				map: map,
+				position: positionPoint,
+				title: "You"
+			});
+
+			}else{
+			
+			positionMarker = new google.maps.Marker({
+				map: map,
+				position: positionPoint,
+				title: "You"
+			});
+			positionStatus = 1;
+			}		
+		}
 	}
 }
 	
@@ -279,12 +317,13 @@ function addFieldMap(){
 			}
 			
 		});
+		
 		map.setTilt(0);
 		dm.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);	
 		google.maps.event.addListener(dm, 'polygoncomplete', function(polygon) {
 			dm.setDrawingMode(null);
-			cur_field = polygon.getPath();
-			encodePGon = google.maps.geometry.encoding.encodePath(cur_field);
+			currentfield = polygon.getPath();
+			encodePGon = google.maps.geometry.encoding.encodePath(currentfield);
 			var fArea = google.maps.geometry.spherical.computeArea(polygon.getPath());
 
 			areaAc = fArea * 0.000247105;
@@ -297,6 +336,7 @@ function addFieldMap(){
 			addFieldMap();
 			}	
 		});
+
 		field_db.allDocs({include_docs: true, descending: true}, function(er, doc) {
 	        	var fields = doc.rows;
 			for(var i=0; i < fields.length; ++i){
@@ -327,9 +367,12 @@ function addFieldMap(){
 				samsPolygon.set("area", polyPath.area);
 				samsPolygon.setMap(map);			
 			}
-		});	
+		});
+
+			
 	}
 }
+
 
 $("#addNewField").click(function(){
 	addFieldMap();
@@ -358,74 +401,369 @@ function addFieldRerun(){
 	addFieldMap();
 }
 
+var cur_field;
 
  function calculateSpeed(){
-			var  rtSelect = cur_field.unit;
-				if(rtSelect =='gal/ac'){
-				console.log(rtSelect);
-				var rate =  cur_field.rate;
-				console.log(rate);
-				var width = cur_spreader.width;
-				console.log(width);
-				var unloadTime = cur_spreader.ut;
-				console.log(unloadTime);
-				if(cur_spreader.unit == "Tons"){
-					spCap = (cur_spreader.capacity * 2000)/8.3;
-				}else{
-					spCap = cur_spreader.capacity
-				}
-				s = ((spCap/unloadTime)*8.25*60)/(width * rate);
-				document.getElementById('speedReturn').innerHTML = '<strong>'+s.toFixed(2) +' (MPH)</strong>';
-	
-			}else if (rtSelect == '1000gal/ac') {
-			var rate =  cur_field.rate *1000;
-				console.log(rate);
-				var width = cur_spreader.width;
-				console.log(width);
-				var unloadTime = cur_spreader.ut;
-				console.log(unloadTime);
-				if(cur_spreader.unit == "Tons"){
-					spCap = (cur_spreader.capacity * 2000)/8.3;
-				}else{
-					spCap = cur_spreader.capacity
-				}
-				s = ((spCap/unloadTime)*8.25*60)/(width * rate);
-				document.getElementById('speedReturn').innerHTML = '<strong>'+s.toFixed(2) +' (MPH)</strong>';
-	 
-			} else if (rtSelect == 'tons/ac') {
-				console.log(rtSelect);
-				var rate =  cur_field.rate;
-				console.log(rate);
-				var width = cur_spreader.width;
-				console.log(width);
-				var unloadTime = cur_spreader.ut;
-				console.log(unloadTime);
-				if(cur_spreader.unit == "Gallons" ){
-					spCap = (cur_spreader.capacity*8.3)/2000;
-				}else {
-					spCap = cur_spreader.capacity;
-				}
-			s = ((spCap/unloadTime)*8.25*60)/(width * rate);
-			document.getElementById('speedReturn').innerHTML ='<strong>'+s.toFixed(2) +' (MPH)</strong>';
+ 	if(fieldTableStat == 1 && spTableStat == 1){
+ 		console.log(fieldTableStat == 1 && spTableStat == 1);
+		var  rtSelect = cur_field.unit;
+		console.log(rtSelect);
+		if(rtSelect =='gal/ac'){
+			console.log(rtSelect);
+			var rate =  cur_field.rate;
+			console.log(rate);
+			var width = cur_spreader.width;
+			console.log(width);
+			var unloadTime = cur_spreader.ut;
+			console.log(unloadTime);
+			if(cur_spreader.unit == "Tons"){
+				spCap = (cur_spreader.capacity * 2000)/8.3;
+			}else{
+				spCap = cur_spreader.capacity
 			}
-	}
-	
+			s = ((spCap/unloadTime)*8.25*60)/(width * rate);
+			document.getElementById('speedReturn').innerHTML = '<strong>'+s.toFixed(2) +' (MPH)</strong>';
 
-function bleClick(){
-	if(scanStatus == STOP){
-		scanStatus = START;
-	}else{
-		scanStatus = STOP;
+		}else if (rtSelect == '1000gal/ac') {
+		var rate =  cur_field.rate *1000;
+			console.log(rate);
+			var width = cur_spreader.width;
+			console.log(width);
+			var unloadTime = cur_spreader.ut;
+			console.log(unloadTime);
+			if(cur_spreader.unit == "Tons"){
+				spCap = (cur_spreader.capacity * 2000)/8.3;
+			}else{
+				spCap = cur_spreader.capacity
+			}
+			s = ((spCap/unloadTime)*8.25*60)/(width * rate);
+			document.getElementById('speedReturn').innerHTML = '<strong>'+s.toFixed(2) +' (MPH)</strong>';
+
+		} else if (rtSelect == 'tons/ac') {
+			console.log(rtSelect);
+			var rate =  cur_field.rate;
+			console.log(rate);
+			var width = cur_spreader.width;
+			console.log(width);
+			var unloadTime = cur_spreader.ut;
+			console.log(unloadTime);
+			if(cur_spreader.unit == "Gallons" ){
+				spCap = (cur_spreader.capacity*8.3)/2000;
+			}else {
+				spCap = cur_spreader.capacity;
+			}
+		s = ((spCap/unloadTime)*8.25*60)/(width * rate);
+		document.getElementById('speedReturn').innerHTML ='<strong>'+s.toFixed(2) +' (MPH)</strong>';
+		}
 	}
-updateScanStatus(); 
 }
+
+//======================field selector=====================
+
+var fieldSelectDB = new PouchDB('fsDB');
+
+function putFieldSelectPref(){   
+    var fieldSelectObject = {
+        _id: new Date().toISOString(),
+        obj: fieldSelect
+    };
+    fieldSelectDB.put(fieldSelectObject,function callback(err, response){
+        if(!err){
+        }
+    });
+}
+
+function userLocation() {
+    uLocation = navigator.geolocation.watchPosition( 
+        function ( position) {	
+        currentPosition = [];
+		positionPoint = (new google.maps.LatLng(position.coords.latitude, position.coords.longitude));
+			updateMarker();
+			fieldSelector();
+        },
+        function () { /*error*/ }, {
+            maximumAge: 1000, //  3 seconds
+            enableHighAccuracy: true
+ 			 
+        }
+
+	);
+
+};
 	
-function updateScanStatus(){
-	if(scanStatus == STOP){
-		app.onStopButton();
-		$('#bleScan').text('Start');
-	}else{
-		app.onStartButton();
-		$('#bleScan').text('Stop')
+function turnOffPosition(){
+	navigator.geolocation.clearWatch(uLocation);
+}
+
+function fieldSelector(){
+	field_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
+		var fields = doc.rows;
+		for(var i=0; i < fields.length; ++i){
+			var polyPath = [];
+			var vertices = google.maps.geometry.encoding.decodePath(fields[i].doc.obj.polygon);
+			for (var j =0; j < vertices.length; j++) {
+				var lat = vertices[j].lat();
+				var lng = vertices[j].lng();
+				point = new google.maps.LatLng(lat, lng);
+				polyPath.push(point)
+			}
+			var testPolygon = new google.maps.Polygon({
+				path: polyPath
+			});
+			if(google.maps.geometry.poly.containsLocation(positionPoint, testPolygon)){
+			 	cur_field = fields[i].doc.obj;
+			 	result = true;
+			 	break;
+			 	
+			}else{
+				result = false;
+			}
+		}
+		if(result == true){
+		$("#fieldBtn").text("Field: " + cur_field.name);
+		calculateSpeed();
+		}else{
+		}
+	});
+	updateMarker();
+}
+
+function autoFieldOn(){
+	fieldSelect = 1;
+	putFieldSelectPref()
+	userLocation();
+}
+
+function autoFieldOff(){
+	fieldSelect = 0;
+	putFieldSelectPref();
+	turnOffPosition();
+}
+
+function handleAutoFieldStatus(){
+	 fieldSelectDB.allDocs({include_docs: true, descending: true}, function(er, doc) {
+	 	if(doc.rows >= 1){
+	        var fieldSelect = doc.rows[0].doc.obj;
+	        console.log(fieldSelect.doc.obj);
+			if(fieldSelect.doc.obj == 1){
+				userLocation();
+				$("#fieldSelectStatus").text("Automatic Field Selector : ON")
+			}else{
+				turnOffPosition();
+				$("#fieldSelectStatus").text("Automatic Field Selector : OFF")
+			}
+		}
+	});
+}
+
+$(document).ready(function(){
+	handleAutoFieldStatus();
+})
+
+//==========================================SensorTag Code======================================
+
+	var sensortag = evothings.tisensortag.createInstance()
+
+	function initialiseSensorTag()
+	{
+		//
+		// Here sensors are set up.
+		//
+		// If you wish to use only one or a few sensors, just set up
+		// the ones you wish to use.
+		//
+		// First parameter to sensor function is the callback function.
+		// Several of the sensors take a millisecond update interval
+		// as the second parameter.
+		// Gyroscope takes the axes to enable as the third parameter:
+		// 1 to enable X axis only, 2 to enable Y axis only, 3 = X and Y,
+		// 4 = Z only, 5 = X and Z, 6 = Y and Z, 7 = X, Y and Z.
+		//
+		sensortag
+			.statusCallback(statusHandler)
+			.errorCallback(errorHandler)
+			.accelerometerCallback(accelerometerHandler, 50)
+			.connectToClosestDevice()
+	}
+// .gyroscopeCallback(gyroscopeHandler, 200, 7) // 7 = enable all axes.
+	function statusHandler(status)
+	{
+		if ('Device data available' == status)
+		{
+			// displayValue('FirmwareData', sensortag.getFirmwareString())
+		}
+		displayValue('StatusData', status)
+		if("Sensors online" == status){
+			accelTimer = setInterval(function(){
+				console.log("timer started")
+				var sumX = 0
+				arrX.map(function(item){
+					sumX += item;
+				});
+					var averageX = sumX/arrX.length;
+					arrX = [];
+
+
+				var sumY = 0
+				arrY.map(function(item){
+					sumY += item;
+				});
+					var averageY = sumY/arrY.length;
+					arrY = [];
+
+
+				var sumZ = 0
+				arrZ.map(function(item){
+					sumZ += item;
+				});
+					var averageZ = sumZ/arrZ.length;
+					arrZ = [];
+
+				
+				averageRslt = (Math.sqrt(Math.pow(averageX, 2) + Math.pow(averageY, 2) + Math.pow(averageZ, 2))) - 1;
+				spreaderFunction();
+				$("#averageAccel").text("data: "+averageRslt.toFixed(5));
+				
+			}, 5000);	
+
+		}
+		
+	}
+
+	function errorHandler(error)
+	{
+		console.log('Error: ' + error)
+		if ('disconnected' == error)
+		{
+			// Clear current values.
+			var blank = '[Waiting for value]'
+			displayValue('StatusData', 'Ready to connect')
+			displayValue('AccelerometerData', blank)
+			// displayValue('GyroscopeData', blank)
+
+
+			// If disconneted attempt to connect again.
+			setTimeout(
+				function() { sensortag.connectToClosestDevice() },
+				1000)
+		}
+	}
+
+	// calculations implemented as based on TI wiki pages
+	// http://processors.wiki.ti.com/index.php/SensorTag_User_Guide
+	function accelerometerHandler(data)
+	{
+		// Calculate the x,y,z accelerometer values from raw data.
+		var values = sensortag.getAccelerometerValues(data)
+		var x = values.x
+		var y = values.y
+		var z = values.z
+
+		arrX.push(x);
+		arrY.push(y);
+		arrZ.push(z);
+
+		// Prepare the information to display.
+		string =
+			//'raw: 0x' + bufferToHexStr(data, 0, 3) + '<br/>'
+			'x = ' + (x >= 0 ? '+' : '') + x.toFixed(4) + 'G<br/>'
+			+ 'y = ' + (y >= 0 ? '+' : '') + y.toFixed(4) + 'G<br/>'
+			+ 'z = ' + (z >= 0 ? '+' : '') + z.toFixed(4) + 'G<br/>'
+
+		// Update the value displayed.
+		displayValue('AccelerometerData', string)
+	}
+
+	function gyroscopeHandler(data)
+	{
+		// Calculate the gyroscope values from raw sensor data.
+		var values = sensortag.getGyroscopeValues(data)
+		var x = values.x
+		var y = values.y
+		var z = values.z
+
+		var xSqrd = Math.pow(x, 2);
+		var ySqrd = Math.pow(y, 2);
+		var zSqrd = Math.pow(z, 2);
+
+		// var xSqrt = Math.sqrt(xSqrd);
+		// var ySqrt = Math.sqrt(ySqrd);
+		// var zSqrt = Math.sqrt(zSqrd);
+
+
+		var sumSqrd = xSqrd + ySqrd + zSqrd;
+		var sumSqrt = Math.sqrt(sumSqrd);
+
+		gyroData.push(sumSqrt);
+		cur_point.gyroRslt = sumSqrt;
+		cur_point.gyroX = x;
+		cur_point.gyroY = y;
+		cur_point.gyroZ = z;
+
+		// Prepare the information to display.
+		string =
+			//'raw: 0x' + bufferToHexStr(data, 0, 6) + '<br/>'
+			 'x = ' + (x >= 0 ? '+' : '') + x.toFixed(4) + '<br/>'
+			+ 'y = ' + (y >= 0 ? '+' : '') + y.toFixed(4) + '<br/>'
+			+ 'z = ' + (z >= 0 ? '+' : '') + z.toFixed(4) + '<br/>'
+
+		// Update the value displayed.
+		displayValue('GyroscopeData', string)
+	}
+
+	function displayValue(elementId, value)
+	{
+		document.getElementById(elementId).innerHTML = value
+	}
+
+	/**
+	 * Convert byte buffer to hex string.
+	 * @param buffer - an Uint8Array
+	 * @param offset - byte offset
+	 * @param numBytes - number of bytes to read
+	 * @return string with hex representation of bytes
+	 */
+	function bufferToHexStr(buffer, offset, numBytes)
+	{
+		var hex = ''
+		for (var i = 0; i < numBytes; ++i)
+		{
+			hex += byteToHexStr(buffer[offset + i])
+		}
+		return hex
+	}
+
+	/**
+	 * Convert byte number to hex string.
+	 */
+	function byteToHexStr(d)
+	{
+		if (d < 0) { d = 0xFF + d + 1 }
+		var hex = Number(d).toString(16)
+		var padding = 2
+		while (hex.length < padding)
+		{
+			hex = '0' + hex
+		}
+		return hex
+	}
+
+	document.addEventListener(
+		'deviceready',
+		function() { evothings.scriptsLoaded(initialiseSensorTag) },
+		false)
+
+function spreaderFunction(){
+	if(averageRslt > 3){
+		if(spread == 0){
+				startUnload();
+			}else{
+			}
+		}else if(averageRslt< 3){
+			if(spread == 1){
+				loadComplete();
+			}else{
+		}
 	}
 }
+

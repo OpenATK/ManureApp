@@ -2,28 +2,90 @@
 var spread = 0;
 var cur_operator;
 var newOperator = {};
-// var operators = ["Matt", "Luke", "Sam", "Ray"];
 var cur_source;
 var cur_record;
 var cur_field;
 var cur_spreadr;
-// var spreaders = [       
-//         {"name":"Kuhn 8132" , capacity: 13, unit: "Tons" , width: 20, type : "Right Discharge"},
-//         {"name":"Balzer" , capacity: 4800, unit: "Gallons", width: 50, type : "Right Discharge"}
-// ];
-// var spreaders = [];
 var fields = [];
 var pathTimer;
+var remoteURL;
+var sync = 0;
+var spTableStat = 0;
+var fieldTableStat = 0;
 
-// var sources = [
-//     {"name":"Pit one", nutrientUnit :"Lbs/1000Gallon", N: 20, P : 22, K: 13},
-//     {"name": "Pit two", nutrientUnit :"Lbs/Ton", N:18, P:26, K: 26}
-// ]; 
-		
 
- var remoteAddress = 'https://koester:blink182@koester.cloudant.com';
-//var remoteAddress = 'http://localhost:5984';
-//var remoteAddress = 'https://koesterm.iriscouch.com';
+
+//====================================Save database infor/options=================================
+
+//remoteURL = 'https://'+$('#userName').val()+':'+$('#password').val()+'@'+$('#userName').val()+'.cloudant.com'
+var dbInfo = new PouchDB('info');
+var remoteURL;
+
+function saveDbInfo(){
+  UP = {'username': $('#userName').val(), 'password': $('#password').val()}
+  pushDbInfo();
+  alert("calling records sync");
+  setTimeout(callRecordSync, 5000)
+  sync = 1;
+  console.log(remoteURL);
+  $('#password').val("");
+  $('#userName').val("");
+}
+
+function pushDbInfo(){
+  dbInfo.allDocs({include_docs: true, descending: false}, function(er, doc) {
+    var credentials = doc.rows;
+    if(credentials){
+    var creds = {
+        _id: new Date().toISOString(),
+        obj: UP
+    };
+    dbInfo.put(creds,function callback(err, response){
+        if(!err){
+        }
+    });
+    }else{
+      var creds = {
+        _id: new Date().toISOString(),
+        obj: UP
+      };
+      dbInfo.put(creds,function callback(err, response){
+          if(!err){
+          }
+      });
+    }
+  });
+  
+  //sdbInfo.destroy();
+}
+
+$(document).ready(function(){
+  checkDbDefined();
+});
+
+function checkDbDefined(){
+  dbInfo.allDocs({include_docs: true, descending: true}, function(er, doc) {
+    console.log(doc.rows.length < 1);
+    if(doc.rows.length >= 1){
+      var credentials = doc.rows[0].doc.obj;
+      remoteURL = 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com'
+        console.log(remoteURL);
+        console.log(doc.rows);
+        callRecordSync();
+        sync = 1;
+
+        alert("Syncing");
+      }else{
+        alert("no database credentials")
+        recordTableFunc();
+        spreaderTableFunc();
+        fieldsTableFunc();
+        sourceTableFunc();
+        operatorsTableFunc();
+      }
+  });
+}
+
 //===========================================Star/Stop functions for unloading==========================================
 
 function startUnload(){
@@ -48,6 +110,7 @@ function startUnload(){
        cur_record.field = cur_field;
        cur_record.operator = cur_operator; 
        cur_record.fillLevel = $("#spFill").val();
+       cur_record.rtUnit = cur_field.unit;
        overlay();
        console.log(cur_field);
        console.log(cur_source);
@@ -60,33 +123,271 @@ function loadComplete(){
     postPath();
     createMap();
     cur_record.rate = rate.toFixed(2);
+    cur_record.pathLength = polyLength;
+    cur_record.loadArea = spreadArAc;
     pushRecordToDb();
     overlay();
     cur_path = [];
     startDiv();
 }
 
+//==========================================Creates Record Table When Load is Complete======================================
+ var recorddb = new PouchDB('records');
+ 
+var recordLocal = recorddb.changes({
+      since: 'now',
+      live: true,
+      include_docs: true
+    }).on('change', function(change){
+      recordTableFunc();
+      recordTableStyle();
+      updateNumbers();
+    });
+
+    function newSyncRecord(){
+      var recordRemote = remoteURL+'/records';
+        recorddb.sync(recordRemote, {
+            live : true,
+            continuous: true
+        }).on('change', function(){
+          recordTableFunc();
+          recordTableStyle();
+          updateNumbers();    
+        }).on('error', function(){
+
+        })        
+    }
+
+    function callRecordSync(){
+      dbInfo.allDocs({include_docs: true, descending: true}, function(er, doc) {
+        var credentials = doc.rows[0].doc.obj;
+        remoteURL = 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com';
+        var recordRemote = remoteURL+'/records';
+        recorddb.sync(recordRemote).on('complete', function(){
+            recordLocal.cancel();
+            recordTableFunc();
+            callSpreaderSync();
+            callSourceSync();
+            callFieldSync();
+            callOpSync();
+            sync = 1;
+            newSyncRecord();
+            $("#databaseName").text('Database: '+credentials.username);
+        }).on('error',function(err){
+          console.log(err)
+            alert('problem syncing records');
+        });
+      });
+
+    }
+
+function pushRecordToDb(){
+    var newRecord = {
+        _id: new Date().toISOString(),
+        obj: cur_record
+    };
+    recorddb.put(newRecord,function callback(err, response){
+        if(!err){
+        }
+    });
+}
+
+
+function createRecordTable() {
+    var reBody = document.getElementById('recordTable');
+    
+    var rbTbl = document.createElement('table');
+    
+
+    rbTbl.style.width = '99%';
+    rbTbl.style.align = 'center';
+    rbTbl.setAttribute('border','1');
+    rbTbl.style.marginLeft = '1%';
+    var rtbdy = document.createElement('tbody');
+
+    var rtr = document.createElement('tr');
+    rtr.style.textAlign = 'center'
+    
+    rth = document.createElement('th');
+    rth.innerHTML = "Date";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+
+    rth = document.createElement('th');
+    rth.innerHTML = "Time";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+
+    rth = document.createElement('th');
+    rth.innerHTML = "Operator";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+
+    rth = document.createElement('th');
+    rth.innerHTML = "Field";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+
+    rth = document.createElement('th');
+    rth.innerHTML = "Source";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+
+    rth = document.createElement('th');
+    rth.innerHTML = "Spreader";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+    
+    rth = document.createElement('th');
+    rth.innerHTML = "Amount";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+    
+    rth = document.createElement('th');
+    rth.innerHTML = "Rate";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+    
+    rth = document.createElement('th');
+    rth.innerHTML = "Load Fill Level";
+    rth.width = '10%';
+    rtr.appendChild(rth);
+    rtbdy.appendChild(rtr);
+    
+    gHeaderCreated = true;
+
+    rbTbl.appendChild(rtbdy);
+    reBody.appendChild(rbTbl);
+
+    $("#recordTable").append($(rbTbl));
+
+} 
+
+//handles startup when no records are found
+$(document).ready(function(){
+    
+});
+
+function recordTableFunc() {
+  recorddb.allDocs({include_docs: true, descending: false}, function(er, doc) {
+      var retrievedRecords = doc.rows
+      if(retrievedRecords.length < 1){
+        console.log("no records")
+      }else{
+        if(document.getElementById('recordTable') == null) {
+          $("#recordTable").innerHTML = "";
+          appendRecordTableRows();
+        }else{
+          var Table = document.getElementById('recordTable');
+          Table.innerHTML = "";
+          createRecordTable();
+          appendRecordTableRows();
+        }
+      }
+  });
+}  
+
+function appendRecordTableRows(){ 
+    recorddb.allDocs({include_docs: true, descending: false}, function(er, doc) {
+        var aName = doc.rows
+        var recordTab = document.getElementById('recordTable');
+        for (var i = 0; i < aName.length; i++) {
+         var row = recordTab.insertRow(-1);
+          recordTab.style.textAlign = 'center';
+         
+         var recordDate = row.insertCell(-1);
+         recordDate.textAlign = 'right';
+         recordDate.appendChild(document.createTextNode(aName[i].doc.obj.date));
+         
+         var recordTime = row.insertCell(-1);
+         recordTime.textAlign = 'center';
+         recordTime.appendChild(document.createTextNode(aName[i].doc.obj.Time));
+
+        var recordOp = row.insertCell(-1);
+         recordOp.textAlign = 'center';
+         recordOp.appendChild(document.createTextNode(aName[i].doc.obj.operator));
+
+         var recordField = row.insertCell(-1);
+         recordField.textAlign = 'center';
+         recordField.appendChild(document.createTextNode(aName[i].doc.obj.field.name));
+         
+         var recordSource = row.insertCell(-1);
+         recordSource.textAlign = 'center';
+         recordSource.appendChild(document.createTextNode(aName[i].doc.obj.cSource.name));
+         
+         var recordSpreader = row.insertCell(-1);
+         recordSpreader.textAlign = 'center';
+         recordSpreader.appendChild(document.createTextNode(aName[i].doc.obj.cSpred.name));
+         
+         var recordAmount = row.insertCell(-1);
+         recordAmount.textAlign = 'center';
+         recordAmount.appendChild(document.createTextNode(aName[i].doc.obj.cSpred.capacity+"("+ aName[i].doc.obj.cSpred.unit +")" ));
+         
+         var loadRate = row.insertCell(-1);
+         loadRate.textAlign = 'center';
+         loadRate.appendChild(document.createTextNode(aName[i].doc.obj.rate+' '+aName[i].doc.obj.field.unit));
+         
+         var SpreaderFillLevel = row.insertCell(-1);
+         SpreaderFillLevel.textAlign = 'center';
+         SpreaderFillLevel.appendChild(document.createTextNode(aName[i].doc.obj.fillLevel));
+         
+         recordTab.children[0].appendChild(row);
+        }
+    });
+    recordTableStyle();  
+}
+
+$(document).ready(function(){
+    recordTableStyle();
+});
+
+function recordTableStyle(){
+    $("#recordTable").removeAttr('class');  
+    var table = document.getElementById('recordTable');  
+    var rows = table.getElementsByTagName("tr"); 
+    for(i = 0; i < rows.length; i++){          
+        if(i % 2 == 0){
+            rows[i].className = "evenrowcolor";
+        }else{
+            rows[i].className = "oddrowcolor";
+        }      
+    }
+}
+
 
 //========================================Save Spreader, Table, and Click Listeners===================================
  var spreader_db = new PouchDB('spreaders');
- var remoteSp = remoteAddress+'/spreaders';
-
-  function newSyncSpreader(){
-    spreader_db.changes({since: 'now', live: true}).on('change', spreaderTableFunc);
-    opts = {
-        continuous: true
-    };
-
-    spreader_db.sync(remoteSp, opts);
-}
-
-    spreader_db.sync(remoteSp).on('complete',function(){
-        newSyncSpreader();
-        spreaderTableFunc();
-    }).on('error', function(err){
-
+ 
+    var spLocal = spreader_db.changes({
+      since: 'now',
+      live: true,
+      include_docs: true
+    }).on('change', function(change){
+      spreaderTableFunc();
     });
+  
+  function newSyncSpreader(){
+      var remoteSp = remoteURL+'/spreaders';
+        spreader_db.sync(remoteSp, {
+            live : true,
+            continuous: true
+        }).on('change', function(){
+          spreaderTableFunc();
+        }).on('error', function(){
 
+        })        
+    }
+
+  function callSpreaderSync(){
+    var remoteSp = remoteURL+'/spreaders';
+    spreader_db.sync(remoteSp).on('complete',function(){
+        spLocal.cancel();
+        spreaderTableFunc();
+        newSyncSpreader();
+    }).on('error', function(err){
+      console.log("problem");
+    });
+  }
 
 function pushSpreaderToDb(){
     var dbSpreader = {
@@ -147,19 +448,24 @@ function createSpreaderTable() {
 
 
 function spreaderTableFunc (){
-
-    if(document.getElementById('spTable') == null){
-        $("#spTable").innerHTML = '';
-        appendTableRows();
-    }else{
-        var Table = document.getElementById('spTable');
-        Table.innerHTML = ""
-        createSpreaderTable();
-        appendTableRows();
-    }
-    spTableClickListener();
-    spreaderTableDblClick();
-}    
+spreader_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
+      var spreaders = doc.rows
+      if(spreaders.length < 1){
+        console.log("no Spreaders") 
+      }else{
+        if(document.getElementById('spTable') == null){
+          $("#spTable").innerHTML = "";
+          appendTableRows();
+        }else{
+          var Table = document.getElementById('spTable');
+          Table.innerHTML = ""
+          createSpreaderTable();
+          appendTableRows();
+        }
+        
+      }
+   });    
+}
 
 
 function appendTableRows(){ 
@@ -193,7 +499,10 @@ function appendTableRows(){
 
          tableB.children[0].appendChild(row);
         }
+        spTableClickListener();
+        spreaderTableDblClick();
     });
+  
 }
 
 function saveSpreader(){
@@ -217,6 +526,7 @@ function spCancel(){
     $("#add-spreader").collapsible("collapse");  
 }
 
+
 // spreader table click listener and highlights last selected spreader.
 function spTableClickListener(){
      recorddb.allDocs({include_docs: true, descending: false}, function(er, doc) {
@@ -235,6 +545,7 @@ function spTableClickListener(){
                 }
             }
             $("#spreaderBtn").text("Spreader : " + cur_spreader.name);
+            spTableStat = 1;
             calculateSpeed();
         });    
     });    
@@ -252,6 +563,7 @@ function spTableClickListener(){
                 }
             $("#spreaderBtn").text("Spreader : " + cur_spreader.name);
             console.log(spreaders[i].doc.obj);
+            spTableStat = 1;
 			calculateSpeed();
         });
     });
@@ -348,24 +660,39 @@ function saveSpEd(){
 
 //====================================Save Source, Table, and Click Listeners===============================
  var source_db = new PouchDB('sources');
- var remoteSource = remoteAddress+'/sources';
+ 
+
+var srcLocal = source_db.changes({
+  since: 'now',
+  live: true,
+  include_docs: true
+}).on('change', function(change){
+  sourceTableFunc();
+})
+
 
 function newSyncSource(){
-    source_db.changes({since: 'now', live: true}).on('change', sourceTableFunc);
-    opts = {
-        continuous: true
-    };
+  var remoteSource = remoteURL+'/sources';
+  source_db.sync(remoteSource, {
+      live : true,
+      continuous: true
+  }).on('change',function(){
+      sourceTableFunc();    
+  }).on('error', function(){
 
-    source_db.sync(remoteSource, opts);
+  })        
 }
 
+function callSourceSync(){
+  var remoteSource = remoteURL+'/sources';
     source_db.sync(remoteSource).on('complete',function(){
+        srcLocal.cancel();
         sourceTableFunc();
         newSyncSource();
     }).on('error', function(err){
-
+    
     });
-
+}
 
 
 function pushSourceToDb(){
@@ -378,6 +705,12 @@ function pushSourceToDb(){
         }
     });
 }
+
+function updateNumbers (){
+  numberLoadsFromSource();
+  numberLoadsOnField();
+}
+
 
 /*Creates Source Table*/
 function createSourceTable() {
@@ -434,18 +767,22 @@ function createSourceTable() {
 
 
 function sourceTableFunc() {
-    if(document.getElementById('sourceTable') == null) {
-        $("#sourceTable").innerHTML = "";
-        appendSourceTableRows();
-    }else{
-        var Table = document.getElementById('sourceTable');
-        Table.innerHTML = ""
-        createSourceTable();
-        appendSourceTableRows();
-    }
-    sourceTableClickListener();
-    sourceTableDblClick();
-
+  source_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
+      var sources = doc.rows
+      if(sources.length < 1){
+        console.log("no sources")
+      }else{
+        if(document.getElementById('sourceTable') == null) {
+            $("#sourceTable").innerHTML = "";
+            appendSourceTableRows();
+        }else{
+            var Table = document.getElementById('sourceTable');
+            Table.innerHTML = ""
+            createSourceTable();
+            appendSourceTableRows();
+        }
+      } 
+  });
 }    
 
 
@@ -480,8 +817,9 @@ function appendSourceTableRows(){
 
             tableB.children[0].appendChild(row);
         }
+        sourceTableClickListener();
+        sourceTableDblClick();
     });
-    recordTableStyle();    
 }
 
 // Saves and pushes source information to array
@@ -616,6 +954,12 @@ function saveEdSource(){
 //counts the number of loads from source
 function numberLoadsFromSource(){
     recorddb.allDocs({include_docs: true, descending: false}, function(er, doc) {
+      var retrievedRecords = doc.rows;
+      if(doc.rows == ''){
+        numberOfLoadsS = 0;
+        document.getElementById('numberLFS').innerHTML ='<strong>'+numberOfLoadsS+'</strong>';
+      }else{
+        numberOfLoadsS = 0;
         var retrievedRecords = doc.rows;     
         var count = 1;
         var currentSN = cur_source_name;
@@ -623,8 +967,9 @@ function numberLoadsFromSource(){
             if (retrievedRecords[i].doc.obj.cSource.name === currentSN){
             numberOfLoadsS = count++;
             document.getElementById('numberLFS').innerHTML ='<strong>'+numberOfLoadsS+'</strong>';
-            }
+          }
         }
+      }
     });
 }
 
@@ -658,22 +1003,38 @@ function getDateTime() {
 
 //=====================================Saves Field, Table, and Click Listeners==================================
  var field_db = new PouchDB('fields');
- var remoteFields = remoteAddress+'/fields';
+ 
+
+var fieldLocal = field_db.changes({
+      since: 'now',
+      live: true,
+      include_docs: true
+    }).on('change', function(change){
+      fieldsTableFunc();
+    })
 
 function newSyncField(){
-    field_db.changes({since: 'now', live: true}).on('change', fieldsTableFunc);
-    opts = {
-        continuous: true
-    };
-    field_db.sync(remoteFields, opts);     
-    
-}
-    field_db.sync(remoteFields).on('complete', function(){
-        fieldsTableFunc();
-        newSyncField();
-    }).on('error', function(){
+  var remoteFields = remoteURL+'/fields';
+  field_db.sync(remoteFields, {
+      live : true,
+      continuous: true
+  }).on('change', function(){
+    fieldsTableFunc();    
+  }).on('error', function(){
 
-    });
+  })        
+}
+
+function callFieldSync() {
+  var remoteFields = remoteURL+'/fields';
+  field_db.sync(remoteFields).on('complete', function(){
+      fieldLocal.cancel();
+      fieldsTableFunc();
+      newSyncField();
+  }).on('error', function(){
+    console.log(error);
+  });
+}
 
 function pushFieldToDb(){
     var dbField = {
@@ -729,21 +1090,25 @@ function createFieldsTable() {
     $("#fieldsTable").append($(bTbl));
 } 
 
-// $(document).ready(function(){
-//     fieldsTableFunc();
-// });
+$(document).ready(function(){
+    });
 
 function fieldsTableFunc() {
-    if(document.getElementById('fieldsTable') == null) {
-        appendFieldsTableRows();
-    }else{
-        var Table = document.getElementById('fieldsTable');
-        Table.innerHTML = ""
-        createFieldsTable();
-        appendFieldsTableRows();
-    }
-    fieldTableClickListener();
-    fieldTableDblClick();
+  field_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
+      var fields = doc.rows
+      if(fields.length < 1){
+        console.log("no fields");
+      }else{
+        if(document.getElementById('fieldsTable') == null) {
+            appendFieldsTableRows();
+        }else{
+            var Table = document.getElementById('fieldsTable');
+            Table.innerHTML = ""
+            createFieldsTable();
+            appendFieldsTableRows();
+        }
+      }
+  });   
 }
 
 function appendFieldsTableRows(){
@@ -773,6 +1138,8 @@ function appendFieldsTableRows(){
                 
             tableB.children[0].appendChild(row);
         }
+        fieldTableClickListener();
+        fieldTableDblClick();
     });       
 }
 
@@ -794,6 +1161,7 @@ function fieldTableClickListener(){
     		}
             $("#fieldBtn").text("Field : " + cur_field.name);
             numberLoadsOnField();
+            calculateSpeed();
         }); 
     });
     field_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
@@ -809,10 +1177,12 @@ function fieldTableClickListener(){
 				}
 			}	
             $("#fieldBtn").text("Field : " + cur_field.name);
+            fieldTableStat = 1;
             calculateSpeed();
             numberLoadsOnField();
         });
     });
+    fieldTableStat = 1;
     calculateSpeed();  
 }
 
@@ -881,7 +1251,7 @@ function deleteField(){
      field_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
         var fields = doc.rows;
         for(i =0; i< fields.length; i++){
-            if (fields[i].doc.obj === edit_field){
+            if (fields[i].doc.obj.name === edit_field.name){
                 removedField = fields[i].doc;
                 break;
             }
@@ -894,7 +1264,8 @@ function deleteField(){
 function saveFieldEd(){
     field_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
         fields = doc.rows;    
-        var editedField = {name: $("#fieldName").val(), unit: $("#rateUnit").val(), rate: $("#rateValue").val(), area: areaAcres, polygon: encodePGon }; 
+        var editedField = {name: $("#fieldName").val(), unit: $("#rateUnit").val(), 
+                          rate: $("#rateValue").val(), area: areaAcres, polygon: encodePGon};
         for(i =0; i< fields.length; i++){
             if (fields[i].doc.obj === edit_spreader){
                 fields[i].doc.obj = editedSpreader;
@@ -908,39 +1279,55 @@ function saveFieldEd(){
 //Counts number of loads spread on field
 function numberLoadsOnField(){
 	recorddb.allDocs({include_docs: true, descending: false}, function(er, doc) {
+        numberOfLoadsF = 0;
         var retrievedRecords = doc.rows;
         var count = 1;
         var currentFN = cur_field_name;   
         for(i =0; i< retrievedRecords.length; i++){
-            if (retrievedRecords[i].doc.obj.field.name === currentFN){
+            if(retrievedRecords[i].doc.obj.field.name === currentFN){
                 numberOfLoadsF = count++;
             }
         }
         document.getElementById('numberLonF').innerHTML ='<strong>'+numberOfLoadsF+'</strong>';
+        console.log(numberOfLoadsF);
     });
+
 }
 
 
 //===============================Saves Operator, Tables, and Click Listener================================
 //Set up and sync operators database to remote database
  var op_db = new PouchDB('operators');
- var operatorsRemote = remoteAddress+'/operators';
+ 
+var opLocal = op_db.changes({
+      since: 'now',
+      live: true,
+      include_docs: true
+    }).on('change', function(change){
+      operatorsTableFunc();
+    });
 
 function newSyncOperator(){
-    op_db.changes({since: 'now', live: true}).on('change', operatorsTableFunc);
-    opts = {
-        continuous: true
-    }; 
-    op_db.sync(operatorsRemote, opts);
+  var operatorsRemote = remoteURL+'/operators';
+  op_db.sync(operatorsRemote, {
+      live : true
+  }).on('change',function(){
+      operatorsTableFunc();
+  }).on('error', function(){
+
+  })        
 }
 
+function callOpSync(){
+  var operatorsRemote = remoteURL+'/operators';
     op_db.sync(operatorsRemote).on('complete', function(){
+        opLocal.cancel()
         operatorsTableFunc();
         newSyncOperator();
     }).on('error', function(err){
-        alert('operators did not sync')
+        console.log(err);
     });
-
+}
 
 function pushOpToDb(){
     var dbOperator = {
@@ -978,7 +1365,7 @@ function createOpTable() {
     bTbl.appendChild(tbdy);
     fBody.appendChild(bTbl);
 
-    $("#opearato_table").append($(bTbl));
+    $("#opearator_table").append($(bTbl));
 }   
 
 
@@ -1014,6 +1401,8 @@ function appendOpTableRows(){
     	   operatorName.appendChild(document.createTextNode(operators[i].doc.obj));
     	   tableB.children[0].appendChild(row);
     	}
+      opTableClickListener();
+      operatorListDblClick();
     });
 }
 
@@ -1057,17 +1446,27 @@ function opTableClickListener(){
     	
 }   
 
+$(document).ready(function(){
+    
+});
+
 function operatorsTableFunc() {
-    if(document.getElementById('operator_table') == null) {
-        appendOpTableRows();
+  op_db.allDocs({include_docs: true, descending: false}, function(er, doc) {
+    var operators = doc.rows
+    console.log(operators);
+    if(operators.length < 1){
+      console.log("no operators");
     }else{
+      if(document.getElementById('operator_table') == null) {
+        appendOpTableRows();
+      }else{
         var Table = document.getElementById('operator_table');
         Table.innerHTML = ""
         createOpTable();
         appendOpTableRows();
+      } 
     }
-    opTableClickListener();
-    operatorListDblClick();
+  });  
 }    
 
 //Double click to edit or delete operator
@@ -1260,186 +1659,3 @@ function bleTagSpreader(){
     });
 }
 
-//==========================================Creates Record Table When Load is Complete======================================
- var recorddb = new PouchDB('records');
- var recordRemote = remoteAddress+'/records';
-
-    function newSyncRecord(){
-        recorddb.changes({since: 'now', live: true}).on('change', recordTableFunc, recordTableStyle);
-        opts = {
-            continuous: true
-        };
-
-        recorddb.sync(recordRemote, opts);
-    }
-
-    recorddb.sync(recordRemote).on('complete', function(){
-        newSyncRecord();
-        recordTableFunc();
-        recordTableStyle();
-    }).on('error',function(err){
-        alert('problem syncing records');
-    })
-
-function pushRecordToDb(){
-    var newRecord = {
-        _id: new Date().toISOString(),
-        obj: cur_record
-    };
-    recorddb.put(newRecord,function callback(err, response){
-        if(!err){
-        }
-    });
-}
-
-
-function createRecordTable() {
-    var reBody = document.getElementById('recordTable');
-    
-    var rbTbl = document.createElement('table');
-    
-
-    rbTbl.style.width = '99%';
-    rbTbl.style.align = 'center';
-    rbTbl.setAttribute('border','1');
-    rbTbl.style.marginLeft = '1%';
-    var rtbdy = document.createElement('tbody');
-
-    var rtr = document.createElement('tr');
-    rtr.style.textAlign = 'center'
-    
-    rth = document.createElement('th');
-    rth.innerHTML = "Date";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-
-    rth = document.createElement('th');
-    rth.innerHTML = "Time";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-
-    rth = document.createElement('th');
-    rth.innerHTML = "Operator";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-
-    rth = document.createElement('th');
-    rth.innerHTML = "Field";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-
-    rth = document.createElement('th');
-    rth.innerHTML = "Source";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-
-    rth = document.createElement('th');
-    rth.innerHTML = "Spreader";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-    
-    rth = document.createElement('th');
-    rth.innerHTML = "Amount";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-    
-    rth = document.createElement('th');
-    rth.innerHTML = "Rate";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-    
-    rth = document.createElement('th');
-    rth.innerHTML = "Load Fill Level";
-    rth.width = '10%';
-    rtr.appendChild(rth);
-    rtbdy.appendChild(rtr);
-    
-    gHeaderCreated = true;
-
-    rbTbl.appendChild(rtbdy);
-    reBody.appendChild(rbTbl);
-
-    $("#recordTable").append($(rbTbl));
-
-} 
-
-
-function recordTableFunc() {
-    if(document.getElementById('recordTable') == null) {
-        $("#recordTable").innerHTML = "";
-        appendRecordTableRows();
-    }else{
-        var Table = document.getElementById('recordTable');
-        Table.innerHTML = "";
-        createRecordTable();
-        appendRecordTableRows();
-    }
-}  
-
-function appendRecordTableRows(){ 
-    recorddb.allDocs({include_docs: true, descending: false}, function(er, doc) {
-        aName = doc.rows
-        console.log(aName);
-        var recordTab = document.getElementById('recordTable');
-        for (var i = 0; i < aName.length; i++) {
-         var row = recordTab.insertRow(-1);
-          recordTab.style.textAlign = 'center';
-         
-         var recordDate = row.insertCell(-1);
-         recordDate.textAlign = 'right';
-         recordDate.appendChild(document.createTextNode(aName[i].doc.obj.date));
-         
-         var recordTime = row.insertCell(-1);
-         recordTime.textAlign = 'center';
-         recordTime.appendChild(document.createTextNode(aName[i].doc.obj.Time));
-
-        var recordOp = row.insertCell(-1);
-         recordOp.textAlign = 'center';
-         recordOp.appendChild(document.createTextNode(aName[i].doc.obj.operator));
-
-         var recordField = row.insertCell(-1);
-         recordField.textAlign = 'center';
-         recordField.appendChild(document.createTextNode(aName[i].doc.obj.field.name));
-         
-         var recordSource = row.insertCell(-1);
-         recordSource.textAlign = 'center';
-         recordSource.appendChild(document.createTextNode(aName[i].doc.obj.cSource.name));
-         
-         var recordSpreader = row.insertCell(-1);
-         recordSpreader.textAlign = 'center';
-         recordSpreader.appendChild(document.createTextNode(aName[i].doc.obj.cSpred.name));
-         
-         var recordAmount = row.insertCell(-1);
-         recordAmount.textAlign = 'center';
-         recordAmount.appendChild(document.createTextNode(aName[i].doc.obj.cSpred.capacity+"("+ aName[i].doc.obj.cSpred.unit +")" ));
-         
-         var loadRate = row.insertCell(-1);
-         loadRate.textAlign = 'center';
-         loadRate.appendChild(document.createTextNode(aName[i].doc.obj.rate));
-         
-         var SpreaderFillLevel = row.insertCell(-1);
-         SpreaderFillLevel.textAlign = 'center';
-         SpreaderFillLevel.appendChild(document.createTextNode(aName[i].doc.obj.fillLevel));
-         
-         recordTab.children[0].appendChild(row);
-        }
-    });
-    recordTableStyle();  
-}
-
-$(document).ready(function(){
-    recordTableStyle();
-});
-
-function recordTableStyle(){
-    $("#recordTable").removeAttr('class');  
-    var table = document.getElementById('recordTable');  
-    var rows = table.getElementsByTagName("tr"); 
-    for(i = 0; i < rows.length; i++){          
-        if(i % 2 == 0){
-            rows[i].className = "evenrowcolor";
-        }else{
-            rows[i].className = "oddrowcolor";
-        }      
-    }
-}

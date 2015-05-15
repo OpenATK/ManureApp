@@ -17,7 +17,7 @@
     <feature name="EmailComposer">
         <param name="android-package" value="de.appplant.cordova.emailcomposer.EmailComposer" />
     </feature>
-    <name>Manure App</name>
+    <name>Test</name>
     <description>
         A sample Apache Cordova application that responds to the deviceready event.
     </description>

@@ -11,9 +11,10 @@ function parseCSV(){
     		csvString = {};
     		record = retrievedRecords[i].doc.obj;
     		console.log(record);
-    		var csvString = { "Date" : record.date,  "Time" : record.Time, "Operator" : record.operator, "Source Name" : record.cSource.name, "N" : record.cSource.N, "P" : record.cSource.P, "K" : record.cSource.K, 
-    						"Nutrient Measure" : record.cSource.nutrientUnit, "Spreader" : record.cSpred.name, "Spreader Capacity" : record.cSpred.capacity +'(' + record.cSpred.unit +')', "Load Fill Level" : record.fillLevel,
-    						"Field" : record.field.name, "Area (acres)" : record.field.area, "Rate" : record.field.rate +'('+ record.field.unit + ')'};
+    		var csvString = { "Date" : record.date,  "Time" : record.Time, "Operator" : record.operator, "Source Name" : record.cSource.name, "N" : record.cSource.N,
+                             "P" : record.cSource.P, "K" : record.cSource.K, "Nutrient Measure" : record.cSource.nutrientUnit, "Spreader" : record.cSpred.name,
+                             "Spreader Capacity" : record.cSpred.capacity +'(' + record.cSpred.unit +')', "Load Fill Level" : record.fillLevel,
+    						"Field" : record.field.name, "Field Area (ac)" : record.field.area, "Rate" : record.rate, "Rate Unit": record.field.unit,"Path Length": record.pathLength, "Path Area (ac)": record.loadArea};
     		csvArray.push(csvString);
     		stCSVArray = JSON.stringify(csvArray);
     	}

@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, height=device-height, minimum-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale = 1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Manure App</title>
 <link rel="stylesheet" type="text/css" href="ma-style.css" />
@@ -13,6 +12,9 @@
 <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
 <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+<script src="cordova.js"></script>
+<script src="libs/evothings/evothings.js"></script>
+<script src="libs/evothings/tisensortag/tisensortag.js"></script>
 <script>
 $( document ).on( "pagecreate", "#home", function( event ) {
 });
@@ -30,6 +32,7 @@ $( document ).on( "pagecreate", "#home", function( event ) {
 	<div data-role="page" id="home" data-theme="d" >
 		<div data-role="header" class="ui-header">
 			<h1>Manure App</h1>
+			<a href="#options" data-icon="gear" class="ui-btn-right">Options</a>
 			<div data-role="navbar" class="navbar">
 				<ul>
 					<li><a href="#Ble_Page" data-role="button">Bluetooth</a></li>
@@ -248,41 +251,43 @@ $( document ).on( "pagecreate", "#home", function( event ) {
 				</ul>
 			</div>
 		</div>
-		<div id="sourcelist">
-			<table id="sourceTable"></table>	
-		</div>
-		<div data-role="collapsible" id="add_source">
-			<h3>Add Source</h3>
-		<div data-role="fieldcontain" id="colSource">
-				<div>
-				<label for="sourceName">Source Name:</label><input type="text" id="sourceName" value="" />
-				</div>
-				<div style="margin: 5px;">
-					<h2 Style="text-align: center" data-role = "header">Nutrient Content</h2>
-				</div>	
-				<div style="text-align: center;">
-				<select id="sourceUnit" style="text-align: center;">
-				<option value="">Select Unit Measure of Nutrient</option>
-				<option value="Lbs/Ton">Lbs/Ton</option>
-				<option value="Lbs/Gallon">Lbs/Gallon</option>
-				<option value="Lbs/1000Gallon">Lbs/1000 Gallons</option>
-				<option value="percent">Percent</option>
-				</select>
-				</div>
-				<div>
-				<label for="nUnits">Units of Nitrogen:</label><input type="number" id="nUnits" value=""/>
-				<label for="kUnits">Units of Potassium:</label><input type="number" id="kUnits" value=""/>
-				<label for="pUnits">Units of Phosphorus:</label><input type="number" id="pUnits" value=""/>
-				</div>
-		</div>
-			<div align="center" class="ui-grid-a" id = "sourceInitial">
-				<div class="ui-block-a"><button type="submit" id="sourceCancel" onclick="cancelSource();">Cancel</button></div>
-				<div  class="ui-block-b"><button type="submit" id="sourceSave" onclick="saveSource();">Save</button></div>
+		<div data-role="content" class="ui-content">
+			<div id="sourcelist">
+				<table id="sourceTable"></table>	
 			</div>
-			<div align="center" class="ui-grid-b" id = "sourceEdit" style ="visibility : hidden; display: none;">
-				<div class="ui-block-a"><button type="submit" id="sourceEdCancel" onclick="cancelSourceEd();">Cancel</button></div>
-				<div  class="ui-block-b"><button type="submit" id="sourceDelete" onclick="deleteSource();">Delete</button></div>
-				<div  class="ui-block-c"><button type="submit" id="sourceSave" onclick="saveEdSource();">Save</button></div>
+			<div data-role="collapsible" id="add_source">
+				<h3>Add Source</h3>
+				<div data-role="fieldcontain" id="colSource">
+					<div>
+					<label for="sourceName">Source Name:</label><input type="text" id="sourceName" value="" />
+					</div>
+					<div style="margin: 5px;">
+						<h2 Style="text-align: center" data-role = "header">Nutrient Content</h2>
+					</div>	
+					<div style="text-align: center;">
+					<select id="sourceUnit" style="text-align: center;">
+					<option value="">Select Unit Measure of Nutrient</option>
+					<option value="Lbs/Ton">Lbs/Ton</option>
+					<option value="Lbs/Gallon">Lbs/Gallon</option>
+					<option value="Lbs/1000Gallon">Lbs/1000 Gallons</option>
+					<option value="percent">Percent</option>
+					</select>
+					</div>
+					<div>
+					<label for="nUnits">Units of Nitrogen:</label><input type="number" id="nUnits" value=""/>
+					<label for="kUnits">Units of Potassium:</label><input type="number" id="kUnits" value=""/>
+					<label for="pUnits">Units of Phosphorus:</label><input type="number" id="pUnits" value=""/>
+					</div>
+				</div>
+				<div align="center" class="ui-grid-a" id = "sourceInitial">
+					<div class="ui-block-a"><button type="submit" id="sourceCancel" onclick="cancelSource();">Cancel</button></div>
+					<div  class="ui-block-b"><button type="submit" id="sourceSave" onclick="saveSource();">Save</button></div>
+				</div>
+				<div align="center" class="ui-grid-b" id = "sourceEdit" style ="visibility : hidden; display: none;">
+					<div class="ui-block-a"><button type="submit" id="sourceEdCancel" onclick="cancelSourceEd();">Cancel</button></div>
+					<div  class="ui-block-b"><button type="submit" id="sourceDelete" onclick="deleteSource();">Delete</button></div>
+					<div  class="ui-block-c"><button type="submit" id="sourceSave" onclick="saveEdSource();">Save</button></div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -321,24 +326,31 @@ $( document ).on( "pagecreate", "#home", function( event ) {
 				<li><a href="#recordPage" data-role="button" rel="external">Records</a></li>
 			</ul>
 		</div>
-		<div data-role="content">
-		<h4>Tap "Start" to connect to the Bluetooth tag</h4>	
-			<p id="info">Not Connected</p>
-			<button id="bleScan" onclick='bleClick();'>START</button>
-			<p id="bleInfoTag">Tag goes hear</p>
-			<p id="datapoints">Datapoints</p>
-			<label for="sumsSqd" >Sum of squared values</label><p id ="sumsSqd"></p>
-		</div>
-		<div id = "bleSpreaderSelect" style="visibility: hidden; visibility: none">
-			<p>Select the name of the spreader to associate with this bluetooth tag<p>
-			<table id = "bleSpreaderTable"></table>
-			<div align="center" class="ui-grid-a" id = "bleSelect">
-				<div class="ui-block-a"><button type="submit" id="turnOffBle" onclick="">Turn Off BLE</button></div>
-				<div  class="ui-block-b"><button type="submit" id="saveBleAddress" onclick="saveBle();">Save</button></div>
+		<div data-role="content">	
+			<h1>TI SensorTag Sensors</h1>
+			<P id="averageAccel">Average Accelerometer Value</p>
+			<p>
+				<strong>Status:</strong> <span id="StatusData">Ready to connect</span>
+			</p>
+			
+			<h2>Accelerometer:</h2>
+			<p>
+				<span id="AccelerometerData">[Waiting for value]</span>
+			</p>
+			
+			<div id = "bleSpreaderSelect" style="visibility: hidden; visibility: none">
+				<p>Select the name of the spreader to associate with this bluetooth tag<p>
+				<table id = "bleSpreaderTable"></table>
+				<div align="center" class="ui-grid-a" id = "bleSelect">
+					<div class="ui-block-a"><button type="submit" id="turnOffBle" onclick="">Turn Off BLE</button></div>
+					<div  class="ui-block-b"><button type="submit" id="saveBleAddress" onclick="saveBle();">Save</button></div>
+				</div>
+				<div id ="debugDiv">
+				</div>	
 			</div>
-		</div>
-	</div> 
-	
+
+		</div> 
+	</div>
 
 		<!-- Operator list page
 	====================================================================-->
@@ -384,8 +396,8 @@ $( document ).on( "pagecreate", "#home", function( event ) {
 		<div data-role="navbar" class="navbar">
 				<ul>
 					<li><a href="#home" data-role="button">Dashboard</a></li>
-					<li><a href="#map-page" data-role="button" data-transition="slide">Map</a></li>
-					<li><a id="csvDownLoad" data-role="button" onclick ="return parseCSV();">Export CSV</a></li>
+					<li><a href="#map-page" data-role="button" data-transition="slide" onclick="return createMap()">Map</a></li>
+					<li><a id="csvDownLoad" data-role="button" onclick ="return parseCSV()">Export CSV</a></li>
 					<!-- <li><a href="#plan_page" data-role="button">Plan</a></li> -->
 				</ul>
 			</div>
@@ -395,36 +407,68 @@ $( document ).on( "pagecreate", "#home", function( event ) {
 	</div>
 
 </div>
+<!-- options	
+========================================================-->
+<div data-role="page" id="options" data-theme="d">
+	<div data-role="header">
+		<h3>Manure Records</h3>
+		<div data-role="navbar" class="navbar">
+			<ul>
+				<li><a href="#home" data-role="button">Dashboard</a></li>
+				<li><a href="#map-page" data-role="button" data-transition="slide">Map</a></li>
+				<li><a id="csvDownLoad" data-role="button" onclick ="return parseCSV();">Export CSV</a></li>
+				<!-- <li><a href="#plan_page" data-role="button">Plan</a></li> -->
+			</ul>
+		</div>
+	</div>
+	<div data-role="content" id="optionsDiv" style="overflow: auto"> 
+			<div data-role="collapsible" data-content-theme="false">
+				<h3>Add Your Database Info</h3>
+				<div data-role="fieldcontain" id="databaseDiv">
+					<h3 id ="databaseName">Not Synced</h3>
+					<div data-role="collapsible" data-content-them="false">
+						<h4>Add new database</h4>
+						<div data-role="fieldcontain" id="dbButtons">
+							<input type="text" id="userName" value="" placeholder="Username" />
+							<input type="text" id="password" value="" placeholder="Password" />
+							<input id="dbInfoSave" type = "submit" value = "Save" onclick="saveDbInfo()"/>
+						</div>
+					</div>
+				</div>
+			</div>
+			<!-- <div data-role="collapsible" data-content-theme="false">
+				<h3>BlueTooth Sensor Tag</h3>
+				<div data-role="fieldcontain" id="">
+					<input type="text" id="userName" value="" placeholder="Username" />
+					<input type="text" id="password" value="" placeholder="Password" />
+					<input id="dbInfoSave" type = "submit" value = "Save" onclick="saveDbInfo()"/>
+				</div>
+			</div> -->
+			<div data-role="collapsible" data-content-theme="false">
+				<h3>Automatic Field Detection</h3>
+				<div data-role="fieldcontain" id="AutoFieldDiv">
+					<h3 id="fieldSelectStatus"></h3>
+					<p>Enable/Disable the automatic field selector</p>
+					<p id = "fieldSelecterStatus"></p>
+					<div id="autoFieldButtons" class="ui-grid-a">
+						<div class="ui-block-a"><button id="autoFieldOff" onclick="autoFieldOff()">OFF</button></div>
+						<div class="ui-block-b"><button id="autoFieldOn" onclick ="autoFieldOn()">ON</button></div>
+					</div>
+				</div>
+			</div>
+		</div>	
+	</div>
+
+</div>
 </body>
 
 
 <script src="https://apis.google.com/js/client.js?onload=onApiLoad"></script>
 <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=true&libraries=drawing,geometry"></script>
 <script src="https://cdn.jsdelivr.net/pouchdb/3.3.1/pouchdb.min.js"></script>
+
 <script src="ma-script.js"></script>
 <script src="data_store.js"></script>
-<script src="local_store.js"></script>
 <script src="CSVcalc.js"></script>
 
-<script type="text/javascript" charset="utf-8" src="cordova.js"></script> 
-<script src="libs/evothings/evothings.js"></script>
-<script src="libs/evothings/easyble/easyble.js"></script>
-<script src="app.js"></script>
-<script src="drive.js"></script>
-
 </html>
-
-
-<!--					<h3>Date</h3>
-				<div data-role="fieldcontain">
-					<div>
-					<label for="fieldName">Field:</label><input type="text" id="fieldName" value="'+field+'" />
-					</div>
-					<div>
-					<label for="sourceName">Source:</label><input type="text" id="sourceName" value="'+source+'" />
-					</div>
-					<div>
-					<label for="planDate" class="select">Date:</label><input type="text" id="planDate" value="'+date+'">
-					</div>
-					</div>
-				</div>-->
