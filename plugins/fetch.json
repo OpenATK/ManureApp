@@ -1,0 +1,38 @@
+{
+    "com.evothings.ble": {
+        "source": {
+            "type": "registry",
+            "id": "com.evothings.ble"
+        }
+    },
+    "org.apache.cordova.geolocation": {
+        "source": {
+            "type": "registry",
+            "id": "org.apache.cordova.geolocation"
+        }
+    },
+    "org.apache.cordova.inappbrowser": {
+        "source": {
+            "type": "registry",
+            "id": "org.apache.cordova.inappbrowser"
+        }
+    },
+    "org.apache.cordova.file": {
+        "source": {
+            "type": "registry",
+            "id": "org.apache.cordova.file"
+        }
+    },
+    "org.apache.cordova.file-transfer": {
+        "source": {
+            "type": "registry",
+            "id": "org.apache.cordova.file-transfer"
+        }
+    },
+    "de.appplant.cordova.plugin.email-composer": {
+        "source": {
+            "type": "registry",
+            "id": "de.appplant.cordova.plugin.email-composer"
+        }
+    }
+}
