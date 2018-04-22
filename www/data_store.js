@@ -22,14 +22,18 @@ var dbInfo = new PouchDB('info');
 var remoteURL;
 
 function saveDbInfo(){
-  UP = {'username': $('#userName').val(), 'password': $('#password').val()}
+  UP = {'username': $('#userName').val(), 'password': $('#password').val(), 'url': $('#url').val() }
+  if (UP.url && (typeof UP.url !== 'string' || UP.url.length < 1)) {
+    UP.url = null;
+  }
   pushDbInfo();
   alert("calling records sync");
   setTimeout(callRecordSync, 5000)
   sync = 1;
-  console.log(remoteURL);
+  console.log('saveDbInfo: UP = ', UP);
   $('#password').val("");
   $('#userName').val("");
+  $('#url').val("");
 }
 
 function pushDbInfo(){
@@ -68,7 +72,10 @@ function checkDbDefined(){
     console.log(doc.rows.length < 1);
     if(doc.rows.length >= 1){
       var credentials = doc.rows[0].doc.obj;
-      remoteURL = 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com'
+//      remoteURL = 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com'
+//      remoteURL = 'http://localhost:5984';
+      console.log('checkDbDefined: credentials = ', credentials);
+      remoteURL = credentials.url || 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com'
         console.log(remoteURL);
         console.log(doc.rows);
         callRecordSync();
@@ -76,7 +83,7 @@ function checkDbDefined(){
 
         alert("Syncing");
       }else{
-        alert("no database credentials")
+        alert("No database credentials!")
         recordTableFunc();
         spreaderTableFunc();
         fieldsTableFunc();
@@ -161,7 +168,9 @@ var recordLocal = recorddb.changes({
     function callRecordSync(){
       dbInfo.allDocs({include_docs: true, descending: true}, function(er, doc) {
         var credentials = doc.rows[0].doc.obj;
-        remoteURL = 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com';
+//        remoteURL = 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com';
+//      remoteURL = 'http://localhost:5984';
+        remoteURL = credentials.url || 'https://'+credentials.username+':'+credentials.password+'@'+credentials.username+'.cloudant.com';
         var recordRemote = remoteURL+'/records';
         recorddb.sync(recordRemote).on('complete', function(){
             recordLocal.cancel();
